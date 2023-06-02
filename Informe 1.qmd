@@ -1,0 +1,301 @@
+---
+title: "Firewall"
+format: html
+editor: visual
+---
+## PLAN CRISPM 
+
+## (1)ENTENDIMIENTO DE LOS DATOS
+
+## 1. Dataframe de origen
+
+```{r}
+dfI1_origen <-
+  read.csv("C:/Users/gaspa/OneDrive - Universidad Técnica Federico Santa María/Escritorio/2023 S1/Análisis de negocios/Trabajo final/Informe 1/log2.csv")
+```
+
+## Analizar la estructura de la base de datos de Firewall utilizando la herramienta RStudio: 
+
+```{r}
+dfI1 <- dfI1_origen 
+```
+
+## Descarga de librerias
+
+```{r}
+library(tidyverse)
+library(modelr)
+library(broom)
+library(readr)
+library(caret)
+library(ggplot2)
+library(e1071)
+library(DataExplorer)
+library(dplyr)
+library(stargazer)
+library(MASS)
+
+```
+
+Se procede a definir las variables categóricas como se solicita:
+
+```{r}
+dfI1$Action[dfI1$Action == "allow"]<-1
+dfI1$Action[dfI1$Action == "deny"]<-0
+dfI1$Action[dfI1$Action == "drop"]<-0
+dfI1$Action[dfI1$Action == "reset-both"]<-0
+```
+
+```{r}
+dfI1$Action[dfI1$Action == 0]<-"No"
+dfI1$Action[dfI1$Action == 1]<-"Yes"
+```
+
+```{r}
+dfI1 <- filter_if(dfI1, is.numeric , all_vars(!is.na(.)))
+```
+
+```{r}
+for (i in c("Action"))
+{
+dfI1[[i]]<-as.factor(dfI1[[i]])
+}
+```
+
+##Análisis exploratorio de datos EDA
+
+La función plot_intro() nos entrega el tipo de variables en las Al columnas y el porcentaje de datos faltantes.
+```{r}
+plot_intro(dfI1_origen)
+```
+Análisis general de la base de datos: 
+```{r}
+summary(dfI1)
+```
+
+La primera función nos entrega los histogramas hechos sistemáticamente usando el paquete ggplot2
+```{r}
+plot_histogram(dfI1)
+```
+
+Se realiza una estimación de densidad por kernel, que vendría siendo algo así como una versión suavizada del histograma.
+```{r}
+plot_density(dfI1)
+```
+
+Para realizar un análisis correlacional de las variables en estudio: 
+```{r}
+plot_correlation(dfI1)
+```
+
+Gráficos de barras para la variable Action: 
+```{r}
+plot_bar(dfI1)
+```
+
+##Gráficos boxplot: 
+
+```{r}
+ggplot(dfI1, aes(y= Bytes.Sent, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Destination.Port, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= NAT.Source.Port, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= NAT.Destination.Port, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Bytes, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Bytes.Sent, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Bytes.Received, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Packets, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= Elapsed.Time..sec., x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= pkts_sent, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+
+ggplot(dfI1, aes(y= pkts_received, x = "", fill = Action)) + 
+  geom_boxplot() + 
+  theme_test() +  xlab(" ")
+```
+```{r}
+# Seleccionar solo las variables numéricas
+variables_numericas <- dfI1[, c("Source.Port","Destination.Port","NAT.Source.Port","NAT.Destination.Port", "Bytes", "Bytes.Sent", "Bytes.Received", "Packets", "Elapsed.Time..sec.", "pkts_sent", "pkts_received")]
+```
+
+```{r}
+# Realizar el PCA
+pca <- prcomp(variables_numericas, scale. = TRUE)
+```
+
+```{r}
+# Obtener los componentes principales
+componentes_principales <- pca$x
+```
+
+```{r}
+# Ver la varianza explicada por cada componente principal
+varianza_explicada <- pca$sdev^2 / sum(pca$sdev^2)
+```
+
+```{r}
+# Plot de la varianza explicada acumulada
+plot(varianza_explicada, type = "b", xlab = "Componente Principal", ylab = "Varianza Explicada Acumulada")
+```
+```{r}
+# Establecer un umbral para seleccionar los componentes principales
+umbral_varianza <- 0.8  # Por ejemplo, seleccionar los componentes que expliquen al menos el 80% de la varianza total
+
+```
+
+```{r}
+# Identificar los componentes principales seleccionados
+componentes_seleccionados <- which(cumsum(varianza_explicada) >= umbral_varianza)[1]
+```
+
+```{r}
+# Excluir la variable "Action" del dataframe
+dfI1_subset <- dfI1[, !colnames(dfI1) %in% "Action"]
+
+# Calcular la matriz de correlación
+correlation_matrix <- cor(dfI1_subset)
+
+# Redondear los valores de correlación a 2 decimales
+correlation_matrix <- round(correlation_matrix, 2)
+
+# Imprimir la matriz de correlación en la consola
+print(correlation_matrix)
+```
+
+```{r}
+dfI2 <- dfI1[, !(colnames(dfI1) %in% c("Bytes.Sent", "pkts_received"))]
+dfI2
+```
+
+```{r}
+plot_correlation(dfI2)
+```
+```{r}
+# Excluir la variable "Action" del dataframe
+dfI3_subset <- dfI2[, !colnames(dfI2) %in% "Action"]
+
+# Calcular la matriz de correlación
+correlation_matrix <- cor(dfI3_subset)
+
+# Redondear los valores de correlación a 2 decimales
+correlation_matrix <- round(correlation_matrix, 2)
+
+# Imprimir la matriz de correlación en la consola
+print(correlation_matrix)
+```
+
+```{r}
+dfI3 <- dfI2[, !(colnames(dfI2) %in% c("Bytes.Received", "pkts_sent"))]
+dfI3
+plot_correlation(dfI3)
+```
+
+```{r}
+dfI4 <- dfI3[, !(colnames(dfI3) %in% c("Packets"))]
+dfI4
+plot_correlation(dfI4)
+```
+
+## FASE DE PREPARACIÓN DE LOS DATOS
+
+```{r}
+fit1 <- glm(formula=Action ~ Source.Port + Destination.Port + NAT.Source.Port + NAT.Destination.Port + Bytes +  Elapsed.Time..sec.,data=dfI3,family = binomial)
+summary(fit1)
+```
+```{r}
+set.seed(134)
+split<-sample.split(Action,SplitRatio = 0.8)
+train<-dfI3[split==TRUE,]
+train_default<-dfI3[split==TRUE,'Action']
+test<- dfI3[split==FALSE,]
+test_default<-dfI3[split==FALSE,'Action']
+```
+
+```{r}
+attach(train)
+```
+
+## (4) FASE DE MODELADO
+
+## (4.1)REGRESIÓN LOGÍSTICA
+
+```{r}
+fit2<-glm(formula=Action ~ Source.Port + Destination.Port + NAT.Source.Port + NAT.Destination.Port + Bytes +  Elapsed.Time..sec.,data=train,family = binomial)
+summary(fit2)
+```
+#MAtriz de confusión 
+
+
+```{r}
+pred_logistic<-predict(fit2,test,type="response")
+y_pred = rep("No", length(pred_logistic))
+y_pred[pred_logistic > 0.3] = "Yes"
+
+```
+
+```{r}
+y_pred<-as.factor(y_pred)
+confusionMatrix(y_pred, test$Action, positive = "Yes")
+```
+##(4.2 LDA)
+
+```{r}
+library(MASS)
+```
+
+```{r}
+mod_ldaI1 <- lda(formula=Action ~ Source.Port + Destination.Port + NAT.Source.Port + NAT.Destination.Port + Bytes +  Elapsed.Time..sec.,data=train)
+mod_ldaI1
+```
+
+```{r}
+prediccionesI1 <- predict(object = mod_ldaI1, newdata = test)
+table(test$Action, prediccionesI1$class, dnn = c("Firewall Real", "Firewall predicho"))
+```
+```{r}
+library(caret)
+confusionMatrix(table(test$Action, prediccionesI1$class, dnn = c("Firewall real", "Firewall predicho")))
+```
+##(4.3 QDA)
+
+```{r}
+mod_qda <- qda(formula=Action ~ Source.Port + Destination.Port + NAT.Source.Port + NAT.Destination.Port + Bytes +  Elapsed.Time..sec.,data=train)
+mod_qda
+```
+```{r}
+predicciones <- predict(object = mod_qda, newdata = test)
+table(test$Action, predicciones$class, dnn = c("Firewall real", "Firewall predicho"))
+```
+```{r}
+confusionMatrix(table(test$Action, predicciones$class, dnn = c("Firewall real", "Firewall predicho")))
+```
+
+```
+
